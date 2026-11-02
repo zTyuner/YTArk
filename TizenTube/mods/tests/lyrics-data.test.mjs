@@ -4,7 +4,7 @@ import {
   lyricsQueries, parseLrc, pickLrclibResult, songFromLrclib, parseLetrasSearch,
   letrasSongUrl, letrasTranslationUrl, letrasLyricLines, letrasVersePairs,
   alignTranslations, detectLanguage, activeLineIndex, modeLanguage, modeShowsOriginal,
-  normalize, decodeEntities,
+  normalize, decodeEntities, nonMusicRanges, songTime, nonMusicLength,
 } from '../features/lyricsData.js';
 
 test('video titles become artist/track guesses without video noise', () => {
@@ -109,4 +109,22 @@ test('modes, language detection and text helpers', () => {
   assert.equal(detectLanguage([{ text: 'la la la' }]), null);
   assert.equal(normalize('Ação, Já!'), 'acaoja');
   assert.equal(decodeEntities('&amp;&#xe9;&hellip;'), '&é…');
+});
+
+test('SponsorBlock non-music sections shift video time onto the song timeline', () => {
+  const ranges = nonMusicRanges([
+    { category: 'music_offtopic', segment: [0, 22] },
+    { category: 'sponsor', segment: [30, 40] },
+    { category: 'music_offtopic', segment: [120, 130] },
+    { category: 'music_offtopic', segment: [125, 140] },
+    { category: 'music_offtopic', segment: [50, 50] },
+  ]);
+  assert.deepEqual(ranges, [[0, 22], [120, 140]]);
+  assert.equal(nonMusicLength(ranges), 42);
+  assert.equal(songTime(10, ranges), null);
+  assert.equal(songTime(22, ranges), 0);
+  assert.equal(songTime(60, ranges), 38);
+  assert.equal(songTime(130, ranges), null);
+  assert.equal(songTime(150, ranges), 108);
+  assert.equal(songTime(15, []), 15);
 });

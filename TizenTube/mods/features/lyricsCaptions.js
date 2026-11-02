@@ -17,8 +17,10 @@ import {
   LYRICS_MODES, modeLanguage, modeShowsOriginal, lyricsQueries, pickLrclibResult,
   songFromLrclib, parseLetrasSearch, letrasSongUrl, letrasTranslationUrl,
   letrasLyricLines, letrasVersePairs, alignTranslations, detectLanguage,
-  activeLineIndex, plainLines,
+  activeLineIndex, plainLines, nonMusicRanges, songTime, nonMusicLength,
 } from './lyricsData.js';
+import sha256 from '../tiny-sha256.js';
+import { fetchSkipSegments } from './sponsorblockRequest.js';
 
 export const LETRAS_READER = 'http://127.0.0.1:38917';
 export const LYRICS_ACTION = 'YTARK_LYRICS';
@@ -38,6 +40,9 @@ const state = {
   timer: null,
   autoCheckedId: '',
   requestFailures: 0,
+  // SponsorBlock "non-music section" ranges of the current video.
+  ranges: [],
+  rangesSource: null,
   cache: new Map(),
 };
 
@@ -199,7 +204,9 @@ function onWatchPage() {
 
 async function findSong(data, generation) {
   const video = videoElement();
-  const duration = video && Number.isFinite(video.duration) ? video.duration : 0;
+  // Compare LRCLIB lengths with the song, not with film scenes around it.
+  const duration = video && Number.isFinite(video.duration)
+    ? Math.max(0, video.duration - nonMusicLength(state.ranges)) : 0;
   const queries = lyricsQueries(data.title, data.author);
   log('queries', JSON.stringify(queries));
   for (const item of queries) {
@@ -337,12 +344,15 @@ async function load(videoId, data, userInitiated) {
   state.lineIndex = -2;
   render('', '');
   state.requestFailures = 0;
+  state.ranges = [];
+  state.rangesSource = null;
   const cached = state.cache.get(videoId);
   let song = cached ? cached.song : null;
   let details = null;
   if (!song) {
     if (userInitiated) toast(tx('ytark.lyrics.searching', 'Searching lyrics…'));
-    details = await videoDetails(videoId, data);
+    const [found] = await Promise.all([videoDetails(videoId, data), loadNonMusicRanges(videoId)]);
+    details = found;
     if (generation !== state.generation) return;
     song = details.title ? await findSong(details, generation) : null;
     if (generation !== state.generation) return;
@@ -361,11 +371,58 @@ async function load(videoId, data, userInitiated) {
     return;
   }
   if (cached) {
+    loadNonMusicRanges(videoId);
     state.letras = cached.letras;
     Object.assign(state.translations, cached.translations);
   }
   state.song = song;
   await applyMode(userInitiated, generation);
+}
+
+// ---------------------------------------------------------------------------
+// Music videos with film scenes: SponsorBlock "non-music section" data
+// ---------------------------------------------------------------------------
+
+/** Uses YTArk SponsorBlock's segments for this video once they arrive. */
+function refreshRanges() {
+  const handler = window.sponsorblock;
+  if (!handler || handler.videoID !== state.videoId || !Array.isArray(handler.segments)) return;
+  if (handler.segments === state.rangesSource) return;
+  state.rangesSource = handler.segments;
+  state.ranges = nonMusicRanges(handler.segments);
+  state.lineIndex = -2;
+  if (state.ranges.length) log('non-music ranges', JSON.stringify(state.ranges));
+}
+
+/** Own lookup when YTArk SponsorBlock is off or has not answered yet. */
+async function loadNonMusicRanges(videoId) {
+  refreshRanges();
+  if (state.rangesSource) return;
+  const outcome = await fetchSkipSegments({
+    api: 'https://sponsor.ajay.app/api',
+    videoID: videoId,
+    hash: sha256(videoId).substring(0, 4),
+    categories: ['music_offtopic'],
+    fetchImpl: (url, options) => fetch(url, options),
+    timeoutMs: 4000,
+  });
+  if (state.videoId !== videoId || state.rangesSource) return;
+  if (outcome.ok) {
+    state.ranges = nonMusicRanges(outcome.segments);
+    state.rangesSource = 'lookup';
+  }
+}
+
+/** Manual fallback: the first sung line starts at the current position. */
+function syncSongStartNow() {
+  const song = state.song;
+  const video = videoElement();
+  const first = song && song.synced ? song.lines.find(line => line.text) : null;
+  if (!first || !video) return;
+  const position = songTime(video.currentTime, state.ranges);
+  state.offset = first.t - (position === null ? video.currentTime : position);
+  state.lineIndex = -2;
+  toast(`${tx('ytark.lyrics.syncedTo', 'Synced to the first line')}: "${first.text}"`);
 }
 
 // ---------------------------------------------------------------------------
@@ -455,7 +512,15 @@ function tick() {
     return;
   }
   const video = videoElement();
-  const index = activeLineIndex(song.lines, (video ? video.currentTime : 0) + state.offset);
+  refreshRanges();
+  const position = songTime(video ? video.currentTime : 0, state.ranges);
+  if (position === null) {
+    // A film scene or dialogue marked as non-music: no lyric line.
+    render('', '');
+    state.lineIndex = -2;
+    return;
+  }
+  const index = activeLineIndex(song.lines, position + state.offset);
   if (index === state.lineIndex) return;
   state.lineIndex = index;
   const original = index >= 0 ? song.lines[index].text : '';
@@ -530,6 +595,7 @@ export function showLyricsMenu() {
   if (state.active && state.song && state.song.synced) {
     items.push(buttonItem({ title: tx('ytark.lyrics.earlier', 'Lyrics earlier (−0.5s)') }, null, lyricsCommands({ offset: 0.5 })));
     items.push(buttonItem({ title: tx('ytark.lyrics.later', 'Lyrics later (+0.5s)') }, null, lyricsCommands({ offset: -0.5 })));
+    items.push(buttonItem({ title: tx('ytark.lyrics.startNow', 'Sync: first line starts now') }, null, lyricsCommands({ startNow: true })));
   }
   if (state.active) {
     items.push(buttonItem({ title: tx('ytark.lyrics.turnOff', 'Turn off lyrics') }, null, lyricsCommands({ off: true })));
@@ -567,6 +633,8 @@ export function handleLyricsAction(parameters) {
   } else if (p.off) {
     stopLyrics();
     toast(tx('ytark.lyrics.off', 'Lyrics off'));
+  } else if (p.startNow) {
+    syncSongStartNow();
   } else if (typeof p.offset === 'number') {
     state.offset += p.offset;
     state.lineIndex = -2;
@@ -633,6 +701,7 @@ export function addLyricsToCaptionsPopup(cmd) {
   if (showing) {
     section.push(popupItem(tx('ytark.lyrics.earlier', 'Lyrics earlier (−0.5s)'), { offset: 0.5 }, false));
     section.push(popupItem(tx('ytark.lyrics.later', 'Lyrics later (+0.5s)'), { offset: -0.5 }, false));
+    section.push(popupItem(tx('ytark.lyrics.startNow', 'Sync: first line starts now'), { startNow: true }, false));
   }
   if (state.active) section.push(popupItem(tx('ytark.lyrics.turnOff', 'Turn off lyrics'), { off: true }, false));
   items.unshift(...section);

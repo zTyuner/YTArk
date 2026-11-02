@@ -394,6 +394,44 @@ export function detectLanguage(lines) {
   return first;
 }
 
+/**
+ * Merged [start, end] ranges of SponsorBlock "non-music section"
+ * (music_offtopic) segments: film scenes, dialogue and intros in music videos.
+ */
+export function nonMusicRanges(segments) {
+  const ranges = (Array.isArray(segments) ? segments : [])
+    .filter(entry => entry && entry.category === 'music_offtopic' && Array.isArray(entry.segment))
+    .map(entry => [Number(entry.segment[0]), Number(entry.segment[1])])
+    .filter(([start, end]) => Number.isFinite(start) && Number.isFinite(end) && end > start)
+    .sort((a, b) => a[0] - b[0]);
+  const merged = [];
+  for (const range of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
+    else merged.push(range.slice());
+  }
+  return merged;
+}
+
+/**
+ * Position in the song for a video time: the video time minus every
+ * non-music range already played. Returns null inside a non-music range,
+ * where no lyric line should show.
+ */
+export function songTime(videoTime, ranges) {
+  let removed = 0;
+  for (const [start, end] of ranges || []) {
+    if (videoTime >= end) removed += end - start;
+    else if (videoTime >= start) return null;
+    else break;
+  }
+  return videoTime - removed;
+}
+
+export function nonMusicLength(ranges) {
+  return (ranges || []).reduce((total, [start, end]) => total + (end - start), 0);
+}
+
 /** Index of the line being sung at `time`, or -1 before the first line. */
 export function activeLineIndex(lines, time) {
   let low = 0;

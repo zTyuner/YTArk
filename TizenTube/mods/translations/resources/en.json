@@ -308,6 +308,8 @@
           "menuSubtitle": "Letras.mus.br as captions",
           "serviceError": "Could not reach the lyrics services. Try again in a moment.",
           "noTitle": "Could not read this video's title",
+          "startNow": "Sync: first line starts now",
+          "syncedTo": "Synced to the first line",
           "noVideo": "Open a video first",
           "settingEnable": "Song lyrics in the captions menu",
           "settingEnableDescription": "Synced lyrics from LRCLIB with the translations published on Letras.mus.br.",
