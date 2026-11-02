@@ -372,7 +372,9 @@ async function load(videoId, data, userInitiated) {
 // Captions view
 // ---------------------------------------------------------------------------
 
-const CAPTION_COLOR = '#ffd659';
+// Original lyrics in yellow, translations in white.
+const ORIGINAL_COLOR = '#ffd659';
+const TRANSLATION_COLOR = '#ffffff';
 const CAPTION_OUTLINE = '0 0 0.3vh #000, 0.15vh 0.15vh 0.2vh #000, -0.15vh -0.15vh 0.2vh #000, 0.15vh -0.15vh 0.2vh #000, -0.15vh 0.15vh 0.2vh #000';
 let overlay = null;
 let primaryLine = null;
@@ -383,13 +385,14 @@ function ensureOverlay() {
   overlay = document.createElement('div');
   overlay.id = 'ytark-lyrics';
   const style = overlay.style;
+  // Anchored to both sides (not left: 50%) so a line can use the full width
+  // before it wraps.
   style.position = 'fixed';
-  style.left = '50%';
+  style.left = '3vw';
+  style.right = '3vw';
   style.bottom = '11vh';
-  style.transform = 'translateX(-50%)';
-  style.maxWidth = '84vw';
-  style.padding = '0.8vh 2vw';
-  // No box: yellow text with a black outline stays readable on any scene.
+  style.padding = '0.8vh 0';
+  // No box: coloured text with a black outline stays readable on any scene.
   style.background = 'transparent';
   style.textAlign = 'center';
   style.zIndex = '2147483000';
@@ -397,13 +400,13 @@ function ensureOverlay() {
   style.display = 'none';
   style.fontFamily = 'Roboto, Arial, sans-serif';
   primaryLine = document.createElement('div');
-  primaryLine.style.color = CAPTION_COLOR;
+  primaryLine.style.color = ORIGINAL_COLOR;
   primaryLine.style.fontSize = '4.4vh';
   primaryLine.style.fontWeight = '600';
   primaryLine.style.lineHeight = '1.25';
   primaryLine.style.textShadow = CAPTION_OUTLINE;
   secondaryLine = document.createElement('div');
-  secondaryLine.style.color = CAPTION_COLOR;
+  secondaryLine.style.color = TRANSLATION_COLOR;
   secondaryLine.style.fontSize = '3.6vh';
   secondaryLine.style.fontWeight = '500';
   secondaryLine.style.lineHeight = '1.25';
@@ -415,12 +418,13 @@ function ensureOverlay() {
   return overlay;
 }
 
-function render(primary, secondary) {
+function render(primary, secondary, primaryIsTranslation) {
   if (!primary) {
     if (overlay) overlay.style.display = 'none';
     return;
   }
   ensureOverlay();
+  primaryLine.style.color = primaryIsTranslation ? TRANSLATION_COLOR : ORIGINAL_COLOR;
   primaryLine.textContent = primary;
   secondaryLine.textContent = secondary || '';
   secondaryLine.style.display = secondary ? 'block' : 'none';
@@ -461,7 +465,7 @@ function tick() {
   }
   const translation = translationAt(index);
   if (modeShowsOriginal(state.mode)) render(original, translation);
-  else render(translation || original, '');
+  else render(translation || original, '', Boolean(translation));
 }
 
 function startTimer() {
