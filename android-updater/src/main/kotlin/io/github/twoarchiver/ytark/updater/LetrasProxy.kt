@@ -130,8 +130,14 @@ object LetrasProxy {
                 connection.instanceFollowRedirects = false
                 connection.connectTimeout = 8000
                 connection.readTimeout = 10000
-                connection.setRequestProperty("User-Agent", "YTArk-Letras/1.0 (Android TV; https://github.com/zTyuner/YTArk)")
-                connection.setRequestProperty("Accept", "text/html, application/json, */*")
+                if (url.host in letrasHosts) {
+                    connection.setRequestProperty("User-Agent", "YTArk-Letras/1.0 (Android TV)")
+                    connection.setRequestProperty("Accept", "text/html")
+                } else {
+                    // LRCLIB asks clients to name themselves and link the project.
+                    connection.setRequestProperty("User-Agent", "YTArk-Letras/1.0 (Android TV; https://github.com/zTyuner/YTArk)")
+                    connection.setRequestProperty("Accept", "application/json, text/plain, */*")
+                }
                 connection.setRequestProperty("Accept-Language", "pt-BR,pt;q=0.9,en;q=0.8")
                 val status = connection.responseCode
                 if (status in 300..399) {

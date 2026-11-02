@@ -307,6 +307,7 @@
           "untimed": "These lyrics have no timing, so they cannot be shown as captions.",
           "menuSubtitle": "Letras.mus.br as captions",
           "serviceError": "Could not reach the lyrics services. Try again in a moment.",
+          "noTitle": "Could not read this video's title",
           "noVideo": "Open a video first",
           "settingEnable": "Song lyrics in the captions menu",
           "settingEnableDescription": "Synced lyrics from LRCLIB with the translations published on Letras.mus.br.",

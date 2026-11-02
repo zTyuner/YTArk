@@ -300,6 +300,33 @@ async function applyMode(userInitiated, generation) {
   tick();
 }
 
+/**
+ * Title and channel of a video. The YouTube TV player's getVideoData() often
+ * has neither, so ask youtube.com's oEmbed endpoint (same origin as the page).
+ */
+async function videoDetails(videoId, data) {
+  const fromPlayer = {
+    title: data && typeof data.title === 'string' ? data.title : '',
+    author: data && typeof data.author === 'string' ? data.author : '',
+  };
+  if (fromPlayer.title && fromPlayer.author) return fromPlayer;
+  try {
+    const response = await fetch(`https://www.youtube.com/oembed?${query({
+      url: `https://www.youtube.com/watch?v=${videoId}`, format: 'json',
+    })}`);
+    if (response.ok) {
+      const json = await response.json();
+      return {
+        title: fromPlayer.title || (typeof json.title === 'string' ? json.title : ''),
+        author: fromPlayer.author || (typeof json.author_name === 'string' ? json.author_name : ''),
+      };
+    }
+  } catch (error) {
+    log('oEmbed failed', error && error.message);
+  }
+  return fromPlayer;
+}
+
 async function load(videoId, data, userInitiated) {
   const generation = ++state.generation;
   state.videoId = videoId;
@@ -312,17 +339,24 @@ async function load(videoId, data, userInitiated) {
   state.requestFailures = 0;
   const cached = state.cache.get(videoId);
   let song = cached ? cached.song : null;
+  let details = null;
   if (!song) {
     if (userInitiated) toast(tx('ytark.lyrics.searching', 'Searching lyrics…'));
-    song = data && data.title ? await findSong(data, generation) : null;
+    details = await videoDetails(videoId, data);
+    if (generation !== state.generation) return;
+    song = details.title ? await findSong(details, generation) : null;
     if (generation !== state.generation) return;
   }
   if (!song) {
-    log('no lyrics for', videoId);
+    log('no lyrics for', videoId, details && details.title);
     if (userInitiated) {
-      toast(state.requestFailures
-        ? tx('ytark.lyrics.serviceError', 'Could not reach the lyrics services. Try again in a moment.')
-        : tx('ytark.lyrics.notFound', 'No lyrics found for this video'));
+      let message = tx('ytark.lyrics.noTitle', 'Could not read this video\'s title');
+      if (state.requestFailures) {
+        message = tx('ytark.lyrics.serviceError', 'Could not reach the lyrics services. Try again in a moment.');
+      } else if (details && details.title) {
+        message = `${tx('ytark.lyrics.notFound', 'No lyrics found for this video')}: ${details.title}`;
+      }
+      toast(message);
     }
     return;
   }
