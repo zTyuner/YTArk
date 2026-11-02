@@ -7,7 +7,9 @@ function InitI18next(lng) {
   i18n
     .init({
       lng,
-      fallbackLng: 'en',
+      // YouTube may report a bare "pt" (HL or navigator.language); only the
+      // regional Portuguese resources exist, so route it to pt-BR.
+      fallbackLng: { pt: ['pt-BR', 'en'], default: ['en'] },
       resources,
       debug: false,
       interpolation: {

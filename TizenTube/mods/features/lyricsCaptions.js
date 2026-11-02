@@ -41,7 +41,7 @@ const state = {
 };
 
 function log(...args) {
-  console.info('[YTArk lyrics]', ...args);
+  console.warn('[YTArk lyrics]', ...args);
 }
 
 function toast(text) {
@@ -476,7 +476,8 @@ export function handleLyricsAction(parameters) {
 function popupItem(title, parameters, selected) {
   return {
     compactLinkRenderer: {
-      title: { simpleText: title },
+      // This popup style does not draw radio icons, so mark the active mode.
+      title: { simpleText: selected ? `✓ ${title}` : title },
       secondaryIcon: { iconType: selected ? 'RADIO_BUTTON_CHECKED' : 'RADIO_BUTTON_UNCHECKED' },
       serviceEndpoint: {
         commandExecutorCommand: {
@@ -523,7 +524,7 @@ export function addLyricsToCaptionsPopup(cmd) {
   }];
   const showing = state.active && state.song && state.song.synced;
   for (const mode of LYRICS_MODES) {
-    section.push(popupItem(modeTitle(mode), { mode }, showing && state.mode === mode));
+    section.push(popupItem(modeTitle(mode), { mode }, state.active && state.mode === mode));
   }
   if (showing) {
     section.push(popupItem(tx('ytark.lyrics.earlier', 'Lyrics earlier (−0.5s)'), { offset: 0.5 }, false));
