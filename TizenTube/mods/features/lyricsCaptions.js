@@ -372,6 +372,8 @@ async function load(videoId, data, userInitiated) {
 // Captions view
 // ---------------------------------------------------------------------------
 
+const CAPTION_COLOR = '#ffd659';
+const CAPTION_OUTLINE = '0 0 0.3vh #000, 0.15vh 0.15vh 0.2vh #000, -0.15vh -0.15vh 0.2vh #000, 0.15vh -0.15vh 0.2vh #000, -0.15vh 0.15vh 0.2vh #000';
 let overlay = null;
 let primaryLine = null;
 let secondaryLine = null;
@@ -387,26 +389,26 @@ function ensureOverlay() {
   style.transform = 'translateX(-50%)';
   style.maxWidth = '84vw';
   style.padding = '0.8vh 2vw';
-  style.borderRadius = '1vh';
-  style.background = 'rgba(0, 0, 0, 0.62)';
+  // No box: yellow text with a black outline stays readable on any scene.
+  style.background = 'transparent';
   style.textAlign = 'center';
   style.zIndex = '2147483000';
   style.pointerEvents = 'none';
   style.display = 'none';
   style.fontFamily = 'Roboto, Arial, sans-serif';
   primaryLine = document.createElement('div');
-  primaryLine.style.color = '#ffffff';
+  primaryLine.style.color = CAPTION_COLOR;
   primaryLine.style.fontSize = '4.4vh';
   primaryLine.style.fontWeight = '600';
   primaryLine.style.lineHeight = '1.25';
-  primaryLine.style.textShadow = '0 0.2vh 0.4vh rgba(0,0,0,0.8)';
+  primaryLine.style.textShadow = CAPTION_OUTLINE;
   secondaryLine = document.createElement('div');
-  secondaryLine.style.color = '#ffd659';
+  secondaryLine.style.color = CAPTION_COLOR;
   secondaryLine.style.fontSize = '3.6vh';
   secondaryLine.style.fontWeight = '500';
   secondaryLine.style.lineHeight = '1.25';
   secondaryLine.style.marginTop = '0.4vh';
-  secondaryLine.style.textShadow = '0 0.2vh 0.4vh rgba(0,0,0,0.8)';
+  secondaryLine.style.textShadow = CAPTION_OUTLINE;
   overlay.appendChild(primaryLine);
   overlay.appendChild(secondaryLine);
   document.body.appendChild(overlay);
