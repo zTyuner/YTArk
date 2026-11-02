@@ -15,21 +15,32 @@ import java.util.LinkedHashMap
 import java.util.concurrent.Executors
 
 /**
- * Loopback-only reader for Letras song and translation pages.
+ * Loopback-only reader for the lyrics captions userscript.
  *
- * The lyrics captions userscript runs inside the YouTube TV page, where CORS
- * keeps it from reading letras.mus.br / letras.com. This server listens on
- * 127.0.0.1 only and fetches nothing but a Letras song page or its
- * Portuguese/English translation page; every other host or path is refused.
- * It never forwards headers, cookies or bodies from the caller.
+ * The YouTube TV page's Content-Security-Policy (connect-src) admits
+ * http://127.0.0.1 but not the lyrics services, and Letras pages send no CORS
+ * headers. This server listens on 127.0.0.1 only and fetches nothing but:
+ *  - LRCLIB lyrics search (lrclib.net/api/search, /api/get),
+ *  - Letras song search (solr.sscdn.co/letras/m1/),
+ *  - a Letras song page or its Portuguese/English translation page,
+ *  - Google Translate's public endpoint (opt-in machine translation).
+ * Every other host or path is refused. It never forwards headers, cookies or
+ * bodies from the caller.
  */
 object LetrasProxy {
     const val PORT = 38917
     private const val TAG = "YTArkLetras"
     private const val MAX_BODY = 3 * 1024 * 1024
-    private const val MAX_REQUEST_LINE = 4096
-    private val hosts = setOf("www.letras.mus.br", "letras.mus.br", "www.letras.com", "letras.com")
-    private val pathPattern = Regex("^/[a-z0-9-]+/[a-z0-9-]+/(traducao\\.html|english\\.html)?$")
+    private const val MAX_REQUEST_LINE = 16384
+    private const val MAX_TARGET = 8000
+    private val letrasHosts = setOf("www.letras.mus.br", "letras.mus.br", "www.letras.com", "letras.com")
+    private val letrasPath = Regex("^/[a-z0-9-]+/[a-z0-9-]+/(traducao\\.html|english\\.html)?$")
+    /** Hosts whose fixed path may carry a query string. */
+    private val queryPaths = mapOf(
+        "lrclib.net" to setOf("/api/search", "/api/get"),
+        "solr.sscdn.co" to setOf("/letras/m1/"),
+        "translate.googleapis.com" to setOf("/translate_a/single"),
+    )
     private val pool = Executors.newFixedThreadPool(3) { runnable ->
         Thread(runnable, "ytark-letras").apply { isDaemon = true }
     }
@@ -58,14 +69,19 @@ object LetrasProxy {
         thread.start()
     }
 
-    /** Returns the target only when it is an allowed Letras page. */
+    /** Returns the target only when it is one of the allowed lyrics endpoints. */
     fun allowedTarget(raw: String?): URL? {
-        if (raw.isNullOrEmpty() || raw.length > 300) return null
+        if (raw.isNullOrEmpty() || raw.length > MAX_TARGET) return null
         val url = try { URL(raw) } catch (_: Exception) { return null }
-        if (url.protocol != "https" || url.port != -1 || url.query != null || url.ref != null) return null
-        if (url.host !in hosts || url.userInfo != null) return null
-        return if (pathPattern.matches(url.path)) url else null
+        if (url.protocol != "https" || url.port != -1 || url.ref != null || url.userInfo != null) return null
+        if (url.host in letrasHosts) {
+            return if (url.query == null && raw.length <= 300 && letrasPath.matches(url.path)) url else null
+        }
+        val paths = queryPaths[url.host] ?: return null
+        return if (url.path in paths && !url.query.isNullOrEmpty()) url else null
     }
+
+    private fun contentType(url: URL) = if (url.host in letrasHosts) "text/html" else "application/json"
 
     private fun serve(socket: Socket) {
         socket.use {
@@ -86,14 +102,17 @@ object LetrasProxy {
                     method == "OPTIONS" -> respond(output, 204, "")
                     method != "GET" -> respond(output, 405, "method not allowed")
                     target == "/ping" -> respond(output, 200, "ok")
-                    target.startsWith("/letras?u=") -> {
-                        val raw = URLDecoder.decode(target.substring("/letras?u=".length), "UTF-8")
+                    target.startsWith("/fetch?u=") || target.startsWith("/letras?u=") -> {
+                        val raw = URLDecoder.decode(target.substringAfter("?u="), "UTF-8")
                         val url = allowedTarget(raw) ?: return respond(output, 403, "not allowed")
+                        val type = contentType(url)
                         val cached = synchronized(cache) { cache[url.toString()] }
-                        if (cached != null) return respond(output, 200, cached, "text/html")
+                        if (cached != null) return respond(output, 200, cached, type)
                         val (status, body) = fetch(url)
                         if (status == 200) synchronized(cache) { cache[url.toString()] = body }
-                        respond(output, if (status == 200) 200 else 502, body, "text/html")
+                        // Busy answers pass through so the caller can retry.
+                        val relayed = if (status == 200 || status == 404 || status == 429 || status == 503) status else 502
+                        respond(output, relayed, body, type)
                     }
                     else -> respond(output, 404, "not found")
                 }
@@ -111,8 +130,8 @@ object LetrasProxy {
                 connection.instanceFollowRedirects = false
                 connection.connectTimeout = 8000
                 connection.readTimeout = 10000
-                connection.setRequestProperty("User-Agent", "YTArk-Letras/1.0 (Android TV)")
-                connection.setRequestProperty("Accept", "text/html")
+                connection.setRequestProperty("User-Agent", "YTArk-Letras/1.0 (Android TV; https://github.com/zTyuner/YTArk)")
+                connection.setRequestProperty("Accept", "text/html, application/json, */*")
                 connection.setRequestProperty("Accept-Language", "pt-BR,pt;q=0.9,en;q=0.8")
                 val status = connection.responseCode
                 if (status in 300..399) {
@@ -164,7 +183,8 @@ object LetrasProxy {
         val bytes = body.toByteArray(Charsets.UTF_8)
         val reason = when (status) {
             200 -> "OK"; 204 -> "No Content"; 400 -> "Bad Request"; 403 -> "Forbidden"
-            404 -> "Not Found"; 405 -> "Method Not Allowed"; else -> "Bad Gateway"
+            404 -> "Not Found"; 405 -> "Method Not Allowed"; 429 -> "Too Many Requests"
+            503 -> "Service Unavailable"; else -> "Bad Gateway"
         }
         val head = "HTTP/1.1 $status $reason\r\n" +
             "Content-Type: $type; charset=utf-8\r\n" +

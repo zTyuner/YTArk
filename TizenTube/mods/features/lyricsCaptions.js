@@ -37,6 +37,7 @@ const state = {
   offset: 0,
   timer: null,
   autoCheckedId: '',
+  requestFailures: 0,
   cache: new Map(),
 };
 
@@ -93,12 +94,16 @@ async function getText(url, retries = 2) {
       }
       if (!response.ok) {
         log('request failed', response.status, url.split('?')[0]);
+        if (response.status !== 404) state.requestFailures += 1;
         return null;
       }
       return await Promise.race([response.text(), timeout]);
     } catch (error) {
       log('request error', url.split('?')[0], error && error.message);
-      if (attempt >= retries) return null;
+      if (attempt >= retries) {
+        state.requestFailures += 1;
+        return null;
+      }
     } finally {
       clearTimeout(timer);
     }
@@ -116,15 +121,21 @@ function query(params) {
   return Object.keys(params).map(key => `${key}=${encodeURIComponent(params[key])}`).join('&');
 }
 
+// The YouTube TV page may only connect to Google hosts and 127.0.0.1, so every
+// lyrics request goes through the APK's loopback reader (LetrasProxy.kt).
+function viaReader(url) {
+  return `${LETRAS_READER}/fetch?u=${encodeURIComponent(url)}`;
+}
+
 function letrasPage(url) {
   if (!url) return Promise.resolve(null);
-  return getText(`${LETRAS_READER}/letras?u=${encodeURIComponent(url)}`, 0);
+  return getText(viaReader(url), 0);
 }
 
 async function letrasFind(artist, track) {
-  const body = await getText(`https://solr.sscdn.co/letras/m1/?${query({
+  const body = await getText(viaReader(`https://solr.sscdn.co/letras/m1/?${query({
     q: `${artist || ''} ${track || ''}`.trim(), wt: 'json',
-  })}`);
+  })}`));
   return body ? parseLetrasSearch(body, track) : null;
 }
 
@@ -134,7 +145,7 @@ async function machineTranslate(texts, target) {
   let length = 0;
   const chunks = [];
   for (const text of texts) {
-    if (chunk.length && length + text.length > 1500) {
+    if (chunk.length && length + text.length > 800) {
       chunks.push(chunk);
       chunk = [];
       length = 0;
@@ -144,9 +155,9 @@ async function machineTranslate(texts, target) {
   }
   if (chunk.length) chunks.push(chunk);
   for (const part of chunks) {
-    const root = await getJson(`https://translate.googleapis.com/translate_a/single?${query({
+    const root = await getJson(viaReader(`https://translate.googleapis.com/translate_a/single?${query({
       client: 'gtx', sl: 'auto', tl: target, dt: 't', q: part.join('\n'),
-    })}`);
+    })}`));
     const segments = Array.isArray(root) && Array.isArray(root[0]) ? root[0] : [];
     const joined = segments.map(segment => (Array.isArray(segment) && typeof segment[0] === 'string' ? segment[0] : '')).join('');
     const pieces = joined.split('\n').map(piece => piece.trim());
@@ -193,7 +204,7 @@ async function findSong(data, generation) {
   log('queries', JSON.stringify(queries));
   for (const item of queries) {
     const params = item.artist ? { track_name: item.track, artist_name: item.artist } : { q: item.track };
-    const results = await getJson(`https://lrclib.net/api/search?${query(params)}`);
+    const results = await getJson(viaReader(`https://lrclib.net/api/search?${query(params)}`));
     if (generation !== state.generation) return null;
     const song = songFromLrclib(pickLrclibResult(results, item, duration), item);
     if (song) {
@@ -298,6 +309,7 @@ async function load(videoId, data, userInitiated) {
   state.offset = 0;
   state.lineIndex = -2;
   render('', '');
+  state.requestFailures = 0;
   const cached = state.cache.get(videoId);
   let song = cached ? cached.song : null;
   if (!song) {
@@ -307,7 +319,11 @@ async function load(videoId, data, userInitiated) {
   }
   if (!song) {
     log('no lyrics for', videoId);
-    if (userInitiated) toast(tx('ytark.lyrics.notFound', 'No lyrics found for this video'));
+    if (userInitiated) {
+      toast(state.requestFailures
+        ? tx('ytark.lyrics.serviceError', 'Could not reach the lyrics services. Try again in a moment.')
+        : tx('ytark.lyrics.notFound', 'No lyrics found for this video'));
+    }
     return;
   }
   if (cached) {
