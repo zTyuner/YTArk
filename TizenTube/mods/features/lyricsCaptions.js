@@ -43,6 +43,7 @@ const state = {
   // SponsorBlock "non-music section" ranges of the current video.
   ranges: [],
   rangesSource: null,
+  syncAnchor: null,
   cache: new Map(),
 };
 
@@ -413,6 +414,45 @@ async function loadNonMusicRanges(videoId) {
   }
 }
 
+function clock(seconds) {
+  const total = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
+/**
+ * Manual sync for edits that use only part of a song: lists every timed line
+ * and remembers the video position when the list opened, so the time spent
+ * choosing does not shift the result.
+ */
+export function showSyncMenu() {
+  const song = state.song;
+  const video = videoElement();
+  if (!song || !song.synced || !video) return;
+  state.syncAnchor = video.currentTime;
+  const items = [];
+  song.lines.forEach((line, index) => {
+    if (!line.text) return;
+    items.push(buttonItem({ title: `${clock(line.t)}  ${line.text}` }, null, lyricsCommands({ syncLine: index })));
+  });
+  const current = Math.max(0, state.lineIndex);
+  const selected = Math.max(0, song.lines.slice(0, current + 1).filter(line => line.text).length - 1);
+  showModal({
+    title: tx('ytark.lyrics.syncPick', 'Sync: pick the line playing now'),
+    subtitle: songLabel(),
+  }, overlayPanelItemListRenderer(items, selected), 'ytark-lyrics-sync');
+}
+
+function syncToLine(index) {
+  const song = state.song;
+  const line = song && song.lines[index];
+  if (!line || state.syncAnchor === null) return;
+  const position = songTime(state.syncAnchor, state.ranges);
+  state.offset = line.t - (position === null ? state.syncAnchor : position);
+  state.syncAnchor = null;
+  state.lineIndex = -2;
+  toast(`${tx('ytark.lyrics.syncedLine', 'Synced at')}: "${line.text}"`);
+}
+
 /** Manual fallback: the first sung line starts at the current position. */
 function syncSongStartNow() {
   const song = state.song;
@@ -595,6 +635,7 @@ export function showLyricsMenu() {
   if (state.active && state.song && state.song.synced) {
     items.push(buttonItem({ title: tx('ytark.lyrics.earlier', 'Lyrics earlier (−0.5s)') }, null, lyricsCommands({ offset: 0.5 })));
     items.push(buttonItem({ title: tx('ytark.lyrics.later', 'Lyrics later (+0.5s)') }, null, lyricsCommands({ offset: -0.5 })));
+    items.push(buttonItem({ title: tx('ytark.lyrics.syncPick', 'Sync: pick the line playing now') }, null, lyricsCommands({ syncPick: true })));
     items.push(buttonItem({ title: tx('ytark.lyrics.startNow', 'Sync: first line starts now') }, null, lyricsCommands({ startNow: true })));
   }
   if (state.active) {
@@ -633,6 +674,11 @@ export function handleLyricsAction(parameters) {
   } else if (p.off) {
     stopLyrics();
     toast(tx('ytark.lyrics.off', 'Lyrics off'));
+  } else if (p.syncPick) {
+    // Let the closing popup finish before opening the list.
+    setTimeout(showSyncMenu, 0);
+  } else if (typeof p.syncLine === 'number') {
+    syncToLine(p.syncLine);
   } else if (p.startNow) {
     syncSongStartNow();
   } else if (typeof p.offset === 'number') {
@@ -701,6 +747,7 @@ export function addLyricsToCaptionsPopup(cmd) {
   if (showing) {
     section.push(popupItem(tx('ytark.lyrics.earlier', 'Lyrics earlier (−0.5s)'), { offset: 0.5 }, false));
     section.push(popupItem(tx('ytark.lyrics.later', 'Lyrics later (+0.5s)'), { offset: -0.5 }, false));
+    section.push(popupItem(tx('ytark.lyrics.syncPick', 'Sync: pick the line playing now'), { syncPick: true }, false));
     section.push(popupItem(tx('ytark.lyrics.startNow', 'Sync: first line starts now'), { startNow: true }, false));
   }
   if (state.active) section.push(popupItem(tx('ytark.lyrics.turnOff', 'Turn off lyrics'), { off: true }, false));

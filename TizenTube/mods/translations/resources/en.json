@@ -310,6 +310,8 @@
           "noTitle": "Could not read this video's title",
           "startNow": "Sync: first line starts now",
           "syncedTo": "Synced to the first line",
+          "syncPick": "Sync: pick the line playing now",
+          "syncedLine": "Synced at",
           "noVideo": "Open a video first",
           "settingEnable": "Song lyrics in the captions menu",
           "settingEnableDescription": "Synced lyrics from LRCLIB with the translations published on Letras.mus.br.",

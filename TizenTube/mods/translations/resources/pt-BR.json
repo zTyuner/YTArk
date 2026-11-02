@@ -310,6 +310,8 @@
             "noTitle": "Não foi possível ler o título deste vídeo",
             "startNow": "Sincronizar: a 1ª frase começa agora",
             "syncedTo": "Sincronizado com a 1ª frase",
+            "syncPick": "Sincronizar: escolher a frase que está tocando",
+            "syncedLine": "Sincronizado em",
             "noVideo": "Abra um vídeo primeiro",
             "settingEnable": "Letras de músicas no menu de legendas",
             "settingEnableDescription": "Letra sincronizada do LRCLIB com as traduções publicadas no Letras.mus.br.",
