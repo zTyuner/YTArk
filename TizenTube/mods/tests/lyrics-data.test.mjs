@@ -127,4 +127,10 @@ test('SponsorBlock non-music sections shift video time onto the song timeline', 
   assert.equal(songTime(130, ranges), null);
   assert.equal(songTime(150, ranges), 108);
   assert.equal(songTime(15, []), 15);
+  // A short silence at the start belongs to the released track: keep it.
+  assert.deepEqual(nonMusicRanges([{ category: 'music_offtopic', segment: [0, 2.1] }]), []);
+  assert.deepEqual(nonMusicRanges([
+    { category: 'music_offtopic', segment: [0, 2.1] },
+    { category: 'music_offtopic', segment: [90, 95] },
+  ]), [[90, 95]]);
 });

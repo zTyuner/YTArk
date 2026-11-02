@@ -410,8 +410,16 @@ export function nonMusicRanges(segments) {
     if (last && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
     else merged.push(range.slice());
   }
+  // A short silence at the very start of an official video is usually part of
+  // the released track that LRCLIB timed as well; subtracting it would make
+  // every line late. Only longer openings (film scenes, dialogue) count.
+  const first = merged[0];
+  if (first && first[0] <= LEAD_IN_START && first[1] - first[0] < LEAD_IN_MAX) merged.shift();
   return merged;
 }
+
+const LEAD_IN_START = 0.5;
+const LEAD_IN_MAX = 6;
 
 /**
  * Position in the song for a video time: the video time minus every
