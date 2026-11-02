@@ -21,6 +21,7 @@ import {
   showRestoreLayoutConfirm, restoreYtSettingsLayout,
 } from './ytSettingsEditor.js';
 import { tx } from '../translations/text.js';
+import { LYRICS_ACTION, handleLyricsAction } from '../features/lyricsCaptions.js';
 
 /** The pinned host's existing async Mojo/JNI method is patched at its Java boundary.
  * It accepts exactly this screen sentinel, rejects URLs, and never installs anything.
@@ -58,6 +59,8 @@ function defer(callback) {
 export function handleYtarkAction(action, parameters) {
   const p = parameters && typeof parameters === 'object' && !Array.isArray(parameters) ? parameters : {};
   switch (action) {
+    case LYRICS_ACTION:
+      return handleLyricsAction(p);
     case 'YTARK_NATIVE_UPDATES_OPEN':
       return openNativeRoute('updates');
     case 'YTARK_DIAGNOSTICS_SET': {

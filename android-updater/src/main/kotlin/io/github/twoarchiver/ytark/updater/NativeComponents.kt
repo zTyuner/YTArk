@@ -104,6 +104,8 @@ class UpdateBootstrapProvider : ReadOnlyProvider() {
         // Creation queues only local reconciliation; no startup release/changelog fetch.
         AndroidDiagnostics.initialize(app)
         StartupTimeline.processStart()
+        // Loopback-only Letras page reader for the lyrics captions userscript.
+        LetrasProxy.start()
         val coordinator=UpdateCoordinator.get(app)
         app.registerActivityLifecycleCallbacks(object: Application.ActivityLifecycleCallbacks {
             private val handler=Handler(Looper.getMainLooper())

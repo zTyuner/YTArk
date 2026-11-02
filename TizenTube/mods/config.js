@@ -162,6 +162,11 @@ const defaultConfig = {
   showAutomaticProfilePicker: false,
   enableShowUserLanguage: true,
   enableShowOtherLanguages: false,
+  // Song lyrics as captions (features/lyricsCaptions.js).
+  enableLyricsCaptions: true,
+  lyricsMode: 'original+pt',
+  lyricsAutoShow: false,
+  lyricsMachineTranslation: false,
   enablePreviousNextButtons: true,
   enableSuperThanksButton: false,
   enableAIAskButton: false,

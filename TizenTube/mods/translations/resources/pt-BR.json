@@ -284,5 +284,36 @@
     "videoMenu": {
         "notInterested": "Not interested",
         "dontRecommendChannel": "Don't recommend channel"
+    },
+    "ytark": {
+        "lyrics": {
+            "title": "Letra da música",
+            "section": "Letra da música (Letras.mus.br)",
+            "modeOriginal": "Letra original",
+            "modePt": "Letra em português",
+            "modeEn": "Letra em inglês",
+            "modeOriginalPt": "Original + português",
+            "modeOriginalEn": "Original + inglês",
+            "earlier": "Adiantar letra (−0,5 s)",
+            "later": "Atrasar letra (+0,5 s)",
+            "turnOff": "Desativar letra",
+            "off": "Letra desativada",
+            "on": "Letra ativada",
+            "sync": "Sincronia da letra",
+            "searching": "Buscando letra…",
+            "findingTranslation": "Buscando tradução…",
+            "notFound": "Nenhuma letra encontrada para este vídeo",
+            "noTranslation": "O Letras não tem tradução desta música — mostrando o original",
+            "untimed": "Esta letra não tem sincronia, então não dá para mostrá-la como legenda.",
+            "noVideo": "Abra um vídeo primeiro",
+            "settingEnable": "Letras de músicas no menu de legendas",
+            "settingEnableDescription": "Letra sincronizada do LRCLIB com as traduções publicadas no Letras.mus.br.",
+            "settingMode": "Idioma da letra",
+            "settingModeDescription": "Usado nas letras automáticas e lembrado a partir do menu de legendas.",
+            "settingAuto": "Mostrar letras automaticamente",
+            "settingAutoDescription": "Ativa a letra sozinha sempre que encontrar a letra sincronizada do vídeo.",
+            "settingMachine": "Tradução automática",
+            "settingMachineDescription": "Usa o Google Tradutor nos versos que o Letras não traduziu. Traduções automáticas não são exatas."
+        }
     }
 }

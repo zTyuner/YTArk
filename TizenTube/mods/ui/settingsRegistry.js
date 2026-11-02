@@ -32,6 +32,8 @@ import {
 } from './ytUI.js';
 import { YTARK_BUILD_INFO } from '../assets/buildInfo.generated.js';
 import { tx } from '../translations/text.js';
+import { LYRICS_MODES } from '../features/lyricsData.js';
+import { modeTitle as lyricsModeTitle } from '../features/lyricsCaptions.js';
 import { browserDiagnostics } from '../features/browserDiagnostics.js';
 
 const qrcodes = {};
@@ -455,10 +457,44 @@ export function buildSettingsTree() {
         title: t('settings.options.subtitles.title'),
         icon: 'TRANSLATE',
         menuId: 'ytark-subtitles',
-        resetKeys: ['enableShowUserLanguage', 'enableShowOtherLanguages'],
+        resetKeys: ['enableShowUserLanguage', 'enableShowOtherLanguages', 'enableLyricsCaptions', 'lyricsMode', 'lyricsAutoShow', 'lyricsMachineTranslation'],
         children: [
           { id: 'subtitles.userLanguage', type: 'toggle', title: t('settings.options.subtitles.options.showLocalSubtitle'), key: 'enableShowUserLanguage' },
           { id: 'subtitles.otherLanguages', type: 'toggle', title: t('settings.options.subtitles.options.showHiddenSubtitles'), key: 'enableShowOtherLanguages' },
+          {
+            id: 'subtitles.lyrics',
+            type: 'toggle',
+            title: tx('ytark.lyrics.settingEnable', 'Song lyrics in the captions menu'),
+            description: tx('ytark.lyrics.settingEnableDescription', 'Synced lyrics from LRCLIB with the translations published on Letras.mus.br.'),
+            key: 'enableLyricsCaptions',
+          },
+          {
+            id: 'subtitles.lyricsMode',
+            type: 'choice',
+            title: tx('ytark.lyrics.settingMode', 'Lyrics language'),
+            description: tx('ytark.lyrics.settingModeDescription', 'Used by automatic lyrics and remembered from the captions menu.'),
+            icon: 'TRANSLATE',
+            key: 'lyricsMode',
+            menuId: 'ytark-lyrics-mode',
+            dependsOn: { key: 'enableLyricsCaptions', title: tx('ytark.lyrics.settingEnable', 'Song lyrics in the captions menu') },
+            options: LYRICS_MODES.map(mode => ({ id: `subtitles.lyricsMode.${mode}`, title: lyricsModeTitle(mode), value: mode })),
+          },
+          {
+            id: 'subtitles.lyricsAuto',
+            type: 'toggle',
+            title: tx('ytark.lyrics.settingAuto', 'Show lyrics automatically'),
+            description: tx('ytark.lyrics.settingAutoDescription', 'Turns lyrics on by itself whenever timed lyrics are found for the video.'),
+            key: 'lyricsAutoShow',
+            dependsOn: { key: 'enableLyricsCaptions', title: tx('ytark.lyrics.settingEnable', 'Song lyrics in the captions menu') },
+          },
+          {
+            id: 'subtitles.lyricsMachine',
+            type: 'toggle',
+            title: tx('ytark.lyrics.settingMachine', 'Machine translation'),
+            description: tx('ytark.lyrics.settingMachineDescription', 'Uses Google Translate for lines Letras has not translated. Machine translations are not exact.'),
+            key: 'lyricsMachineTranslation',
+            dependsOn: { key: 'enableLyricsCaptions', title: tx('ytark.lyrics.settingEnable', 'Song lyrics in the captions menu') },
+          },
         ],
       },
     ],
