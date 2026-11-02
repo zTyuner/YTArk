@@ -11,7 +11,7 @@
 // Subtitles page of YTArk Settings, and the optional automatic mode.
 
 import { configRead, configWrite, configChangeEmitter } from '../config.js';
-import { showToast } from '../ui/ytUI.js';
+import { showToast, showModal, buttonItem, overlayPanelItemListRenderer } from '../ui/ytUI.js';
 import { tx } from '../translations/text.js';
 import {
   LYRICS_MODES, modeLanguage, modeShowsOriginal, lyricsQueries, pickLrclibResult,
@@ -457,10 +457,58 @@ export function lyricsActive() {
   return state.active;
 }
 
-/** Custom action YTARK_LYRICS: {mode} starts, {off: true} stops, {offset} shifts timing. */
+function lyricsCommands(parameters) {
+  return [
+    { signalAction: { signal: 'POPUP_BACK' } },
+    { customAction: { action: LYRICS_ACTION, parameters } },
+  ];
+}
+
+/** The lyrics modes as a YTArk modal, reachable from any video. */
+export function showLyricsMenu() {
+  const items = LYRICS_MODES.map((mode) => {
+    const title = modeTitle(mode);
+    return buttonItem({ title: state.active && state.mode === mode ? `✓ ${title}` : title },
+      null, lyricsCommands({ mode }));
+  });
+  if (state.active && state.song && state.song.synced) {
+    items.push(buttonItem({ title: tx('ytark.lyrics.earlier', 'Lyrics earlier (−0.5s)') }, null, lyricsCommands({ offset: 0.5 })));
+    items.push(buttonItem({ title: tx('ytark.lyrics.later', 'Lyrics later (+0.5s)') }, null, lyricsCommands({ offset: -0.5 })));
+  }
+  if (state.active) {
+    items.push(buttonItem({ title: tx('ytark.lyrics.turnOff', 'Turn off lyrics') }, null, lyricsCommands({ off: true })));
+  }
+  showModal({
+    title: tx('ytark.lyrics.section', 'Song lyrics (Letras.mus.br)'),
+    subtitle: state.active && state.song ? songLabel() : '',
+  }, overlayPanelItemListRenderer(items, 0), 'ytark-lyrics-menu');
+}
+
+/**
+ * Adds "Song lyrics" to the player's settings (gear) popup, which every video
+ * has, including those where YouTube only answers "Captions unavailable".
+ */
+export function addLyricsToPlaybackSettings(cmd) {
+  if (!cmd || !cmd.openPopupAction || cmd.openPopupAction.uniqueId !== 'playback-settings') return false;
+  if (!configRead('enableLyricsCaptions')) return false;
+  const items = popupItems(cmd);
+  const title = tx('ytark.lyrics.title', 'Song lyrics');
+  if (!Array.isArray(items) || items.some(item => item && item.compactLinkRenderer
+      && item.compactLinkRenderer.title && item.compactLinkRenderer.title.simpleText === title)) {
+    return false;
+  }
+  const subtitle = state.active ? modeTitle(state.mode) : tx('ytark.lyrics.menuSubtitle', 'Letras.mus.br as captions');
+  items.splice(0, 0, buttonItem({ title, subtitle }, { icon: 'TRANSLATE' }, lyricsCommands({ menu: true })));
+  return true;
+}
+
+/** Custom action YTARK_LYRICS: {menu} lists modes, {mode} starts, {off} stops, {offset} shifts timing. */
 export function handleLyricsAction(parameters) {
   const p = parameters || {};
-  if (p.off) {
+  if (p.menu) {
+    // Let the closing popup finish before opening the modal.
+    setTimeout(showLyricsMenu, 0);
+  } else if (p.off) {
     stopLyrics();
     toast(tx('ytark.lyrics.off', 'Lyrics off'));
   } else if (typeof p.offset === 'number') {

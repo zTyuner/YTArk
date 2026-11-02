@@ -305,6 +305,7 @@
           "notFound": "No lyrics found for this video",
           "noTranslation": "Letras has no translation for this song — showing the original",
           "untimed": "These lyrics have no timing, so they cannot be shown as captions.",
+          "menuSubtitle": "Letras.mus.br as captions",
           "noVideo": "Open a video first",
           "settingEnable": "Song lyrics in the captions menu",
           "settingEnableDescription": "Synced lyrics from LRCLIB with the translations published on Letras.mus.br.",

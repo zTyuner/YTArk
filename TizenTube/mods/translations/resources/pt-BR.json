@@ -305,6 +305,7 @@
             "notFound": "Nenhuma letra encontrada para este vídeo",
             "noTranslation": "O Letras não tem tradução desta música — mostrando o original",
             "untimed": "Esta letra não tem sincronia, então não dá para mostrá-la como legenda.",
+            "menuSubtitle": "Letras.mus.br como legenda",
             "noVideo": "Abra um vídeo primeiro",
             "settingEnable": "Letras de músicas no menu de legendas",
             "settingEnableDescription": "Letra sincronizada do LRCLIB com as traduções publicadas no Letras.mus.br.",

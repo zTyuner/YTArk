@@ -3,7 +3,7 @@
 
 import { configRead } from "../config.js";
 import languages from "../translations/language-names.js";
-import { addLyricsToCaptionsPopup } from "./lyricsCaptions.js";
+import { addLyricsToCaptionsPopup, addLyricsToPlaybackSettings } from "./lyricsCaptions.js";
 
 const LANGUAGE_CODES = [
     "af", "sq", "am", "ar", "hy", "as", "az", "eu", "be", "bn", "bs", "bg",
@@ -223,9 +223,10 @@ function patchSubtitleMenu() {
     const originalResolveCommand = yttvInstance.instance.resolveCommand;
 
     yttvInstance.instance.resolveCommand = function (cmd, _) {
-        // "Song lyrics" section at the top of the captions popups.
+        // "Song lyrics" in the captions popups and in the player settings popup.
         try {
             addLyricsToCaptionsPopup(cmd);
+            addLyricsToPlaybackSettings(cmd);
         } catch (error) {
             console.warn("YTArk subtitles: lyrics menu failed", error);
         }
