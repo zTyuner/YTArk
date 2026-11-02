@@ -42,6 +42,8 @@ test('LRCLIB picks timed lyrics closest to the video length and keeps clean name
   const query = { artist: 'Coldplay', track: 'Yellow' };
   const best = pickLrclibResult(results, query, 269);
   assert.equal(best.syncedLyrics, '[00:01.00]b');
+  const unknownLength = { trackName: 'Yellow', artistName: 'Coldplay', duration: null, syncedLyrics: '[00:01.00]d' };
+  assert.equal(pickLrclibResult([unknownLength, ...results], query, 269).syncedLyrics, '[00:01.00]b');
   const song = songFromLrclib({ ...best, trackName: 'Yellow [Parachutes, 2000]' }, query);
   assert.equal(song.track, 'Yellow');
   assert.equal(song.synced, true);

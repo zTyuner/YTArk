@@ -284,7 +284,7 @@ async function applyMode(userInitiated, generation) {
   } else if (userInitiated && Array.isArray(translations) && translations.length === 0) {
     toast(tx('ytark.lyrics.noTranslation', 'Letras has no translation for this song — showing the original'));
   } else if (userInitiated) {
-    toast(`${tx('ytark.lyrics.on', 'Lyrics on')} · ${songLabel()}`);
+    toast(`${tx('ytark.lyrics.on', 'Lyrics on')} (${modeTitle(state.mode)}) · ${songLabel()}`);
   }
   tick();
 }

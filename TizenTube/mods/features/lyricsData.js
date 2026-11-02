@@ -182,8 +182,10 @@ export function pickLrclibResult(results, query, duration) {
       if (name.length < 2 || wanted.indexOf(name) < 0) continue;
     }
     let score = synced ? 1000 : 0;
-    if (duration > 0 && typeof result.duration === 'number') {
-      score -= Math.min(Math.abs(result.duration - duration), 600);
+    if (duration > 0) {
+      // An entry without a length must not outrank one that matches the video.
+      score -= typeof result.duration === 'number'
+        ? Math.min(Math.abs(result.duration - duration), 600) : 300;
     }
     if (score > bestScore) {
       bestScore = score;
